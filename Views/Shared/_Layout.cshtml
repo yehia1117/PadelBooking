@@ -1,3 +1,5 @@
+@inject PadelBooking.Data.AppDbContext Db
+@{ var contactPhone = Db.CourtSettings.FirstOrDefault()?.ContactPhone ?? "01095672217"; var waPhone = contactPhone.StartsWith("0") ? "2" + contactPhone : contactPhone; }
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -23,7 +25,7 @@
  @if (TempData["Message"] != null) { <div class="alert alert-info">@TempData["Message"]</div> }
  @RenderBody()
 </main>
-<footer class="text-center text-secondary py-4">Padel Club · حجز ملعب بادل</footer>
+<footer class="text-center text-secondary py-4">Padel Club · حجز ملعب بادل<br/><div class="mt-2 d-flex justify-content-center gap-2"><a class="btn btn-sm btn-outline-success" href="tel:@contactPhone">اتصل بنا: @contactPhone</a><a class="btn btn-sm btn-success" target="_blank" rel="noopener" href="https://wa.me/@waPhone">واتساب</a></div></footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 @RenderSection("Scripts", required: false)
 </body>

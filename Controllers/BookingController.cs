@@ -10,44 +10,35 @@ namespace PadelBooking.Controllers;
 public class BookingController : Controller
 {
     private readonly AppDbContext _db;
-    public BookingController(AppDbContext db) => _db = db;
-    private int UserId => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
+    public BookingController(AppDbContext db) => _db=db;
+    private int UserId=>int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     public async Task<IActionResult> Index(string? date)
     {
-        DateTime chosen;
-        if (!DateTime.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out chosen)) chosen = DateTime.Today;
-        if (chosen.Date < DateTime.Today) chosen = DateTime.Today;
-        var slots = Enumerable.Range(0, 9).Select(i => chosen.Date.AddHours(16 + i)).ToList();
-        var booked = await _db.Bookings.Where(b => b.StartDateTime >= chosen.Date.AddHours(16) && b.StartDateTime <= chosen.Date.AddDays(1).AddHours(0) && b.Status != "Rejected" && b.Status != "Cancelled").Select(b => b.StartDateTime).ToListAsync();
-        ViewBag.Date = chosen.ToString("yyyy-MM-dd");
-        ViewBag.Booked = booked;
+        var chosen=DateTime.TryParseExact(date,"yyyy-MM-dd",CultureInfo.InvariantCulture,DateTimeStyles.None,out var parsed)?parsed.Date:DateTime.Today;
+        if(chosen<DateTime.Today) chosen=DateTime.Today;
+        var s=await _db.CourtSettings.FirstOrDefaultAsync()??new CourtSettings();
+        var slots=new List<DateTime>(); var start=chosen.AddHours(s.OpenHour); var end=chosen.AddHours(s.CloseHour);
+        if(s.WorkingDays.Split(',').Contains(((int)chosen.DayOfWeek).ToString()))
+            for(var x=start;x.AddMinutes(s.SlotMinutes)<=end;x=x.AddMinutes(s.SlotMinutes)) slots.Add(x);
+        var booked=await _db.Bookings.Where(b=>b.StartDateTime<end && b.EndDateTime>start && b.Status!="Rejected" && b.Status!="Cancelled").Select(b=>new {b.StartDateTime,b.EndDateTime}).ToListAsync();
+        var blocked=await _db.BlockedSlots.Where(b=>b.StartDateTime<end && b.EndDateTime>start).Select(b=>new {b.StartDateTime,b.EndDateTime}).ToListAsync();
+        ViewBag.Date=chosen.ToString("yyyy-MM-dd"); ViewBag.Booked=booked; ViewBag.Blocked=blocked; ViewBag.Settings=s;
         return View(slots);
     }
-
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpPost,ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(DateTime startDateTime)
     {
-        var start = startDateTime;
-        var valid = start.Minute == 0 && start.Second == 0 && start >= DateTime.Today.AddHours(16) && start <= DateTime.Today.AddDays(30).AddHours(0);
-        // Allowed starts are 4 PM through midnight, with midnight belonging to the selected evening.
-        var hourValid = (start.Hour >= 16 && start.Hour <= 23) || start.Hour == 0;
-        if (!valid || !hourValid || start < DateTime.Now.AddMinutes(-1)) { TempData["Message"] = "الموعد المختار غير صالح."; return RedirectToAction("Index", new { date = start.Date.ToString("yyyy-MM-dd") }); }
-        bool conflict = await _db.Bookings.AnyAsync(b => b.StartDateTime == start && b.Status != "Rejected" && b.Status != "Cancelled");
-        if (conflict) { TempData["Message"] = "الموعد تم حجزه بالفعل، اختار موعد تاني."; return RedirectToAction("Index", new { date = start.Hour == 0 ? start.AddDays(-1).Date.ToString("yyyy-MM-dd") : start.Date.ToString("yyyy-MM-dd") }); }
-        _db.Bookings.Add(new Booking { UserId = UserId, StartDateTime = start, EndDateTime = start.AddHours(1), Status = "Pending" });
-        try { await _db.SaveChangesAsync(); TempData["Message"] = "طلب الحجز اتبعت للإدارة، في انتظار التأكيد."; }
-        catch (DbUpdateException) { TempData["Message"] = "الموعد اتاخد للتو، اختار موعد تاني."; }
-        return RedirectToAction("MyBookings");
+        var s=await _db.CourtSettings.FirstOrDefaultAsync()??new CourtSettings(); var end=startDateTime.AddMinutes(s.SlotMinutes);
+        var sessionDate = startDateTime.Hour < s.OpenHour ? startDateTime.Date.AddDays(-1) : startDateTime.Date;
+        var dayStart=sessionDate.AddHours(s.OpenHour); var dayEnd=sessionDate.AddHours(s.CloseHour);
+        bool valid=startDateTime>=DateTime.Now && startDateTime>=dayStart && end<=dayEnd && (startDateTime - dayStart).TotalMinutes % s.SlotMinutes == 0 && s.WorkingDays.Split(',').Contains(((int)sessionDate.DayOfWeek).ToString());
+        bool conflict=await _db.Bookings.AnyAsync(b=>b.StartDateTime<end && b.EndDateTime>startDateTime && b.Status!="Rejected" && b.Status!="Cancelled") || await _db.BlockedSlots.AnyAsync(b=>b.StartDateTime<end && b.EndDateTime>startDateTime);
+        if(!valid||conflict){TempData["Message"]="الموعد غير متاح أو تم حجزه بالفعل.";return RedirectToAction(nameof(Index),new {date=startDateTime.Date.ToString("yyyy-MM-dd")});}
+        _db.Bookings.Add(new Booking{UserId=UserId,StartDateTime=startDateTime,EndDateTime=end,Status="Pending"});
+        try{await _db.SaveChangesAsync();TempData["Message"]="تم إرسال طلب الحجز، وستظهر الموافقة في صفحة حجوزاتي.";}catch(DbUpdateException){TempData["Message"]="الموعد اتاخد للتو، اختار موعد تاني.";}
+        return RedirectToAction(nameof(MyBookings));
     }
-
-    public async Task<IActionResult> MyBookings() => View(await _db.Bookings.Include(b => b.User).Where(b => b.UserId == UserId).OrderByDescending(b => b.StartDateTime).ToListAsync());
-
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Cancel(int id)
-    {
-        var booking = await _db.Bookings.FirstOrDefaultAsync(b => b.Id == id && b.UserId == UserId);
-        if (booking != null && booking.Status == "Pending" && booking.StartDateTime > DateTime.Now) { booking.Status = "Cancelled"; await _db.SaveChangesAsync(); TempData["Message"] = "تم إلغاء الطلب."; }
-        return RedirectToAction("MyBookings");
-    }
+    public async Task<IActionResult> MyBookings()=>View(await _db.Bookings.Where(b=>b.UserId==UserId).OrderByDescending(b=>b.StartDateTime).ToListAsync());
+    [HttpPost,ValidateAntiForgeryToken]
+    public async Task<IActionResult> Cancel(int id){var b=await _db.Bookings.FirstOrDefaultAsync(x=>x.Id==id&&x.UserId==UserId);if(b!=null&&b.Status=="Pending"&&b.StartDateTime>DateTime.Now){b.Status="Cancelled";await _db.SaveChangesAsync();TempData["Message"]="تم إلغاء الطلب.";}return RedirectToAction(nameof(MyBookings));}
 }

@@ -42,3 +42,15 @@ Replace the remote URL with your own repository address. Do not commit the datab
 
 ## Notes
 This is a prototype for testing. It uses cookie authentication and PBKDF2 password hashing. Before public deployment, add rate limiting, stronger account recovery, HTTPS-only cookie settings, production database hosting, admin password management, and booking notifications. GitHub Pages cannot host an ASP.NET MVC application; use an ASP.NET-capable hosting provider for a public test URL.
+
+## New admin features
+- Court schedule configuration: opening/closing hours, slot duration, price per hour, working days and contact number.
+- Close a full day or block individual time ranges; reopen blocked periods.
+- Create manual confirmed bookings for existing registered customers.
+- Booking history filters by customer/phone, date range and status.
+- Monthly booking and estimated revenue report.
+- Customers see booking status and admin notes in My Bookings; contact/WhatsApp links are shown in the footer.
+
+Admin navigation: sign in as admin, then use the links at the top of `/Admin`.
+
+Important: the contact number is set to 01095672217. WhatsApp uses the international Egypt format +201095672217. Automatic WhatsApp/SMS sending is not configured; current notifications are in-app status updates. For automatic outbound messages, connect a WhatsApp Business API/SMS provider.

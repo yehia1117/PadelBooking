@@ -1,0 +1,10 @@
+@{ViewData["Title"]="إعدادات مواعيد الملعب";var s=(CourtSettings)ViewBag.Settings;var days=s.WorkingDays.Split(',');}
+<h2 class="fw-bold mb-3">إدارة مواعيد الملعب</h2><p class="text-secondary">أي تعديل هنا ينعكس مباشرة على المواعيد التي يراها العملاء.</p>
+<form asp-action="SaveSchedule" method="post" class="date-picker-card"><div class="row g-3">
+<div class="col-md-6"><label class="form-label">ساعة الفتح</label><select name="openHour" class="form-select">@for(int h=0;h<24;h++){<option value="@h" selected="@(s.OpenHour==h)">@DateTime.Today.AddHours(h).ToString("h:mm tt")</option>}</select></div>
+<div class="col-md-6"><label class="form-label">ساعة الإغلاق (بعد منتصف الليل اكتب 25 للساعة 1 صباحًا)</label><input name="closeHour" type="number" min="1" max="30" class="form-control" value="@s.CloseHour"/></div>
+<div class="col-md-6"><label class="form-label">مدة الحجز بالدقائق</label><select name="slotMinutes" class="form-select">@foreach(var m in new[]{30,60,90,120,150,180}){<option value="@m" selected="@(s.SlotMinutes==m)">@m دقيقة</option>}</select></div>
+<div class="col-md-6"><label class="form-label">سعر الساعة بالجنيه</label><input name="pricePerHour" type="number" min="0" step="0.01" class="form-control" value="@s.PricePerHour"/></div>
+<div class="col-12"><label class="form-label">رقم التواصل والواتساب</label><input name="contactPhone" class="form-control" dir="ltr" value="@s.ContactPhone"/></div>
+<div class="col-12"><label class="form-label d-block">أيام العمل</label>@foreach(var d in new[]{("0","الأحد"),("1","الإثنين"),("2","الثلاثاء"),("3","الأربعاء"),("4","الخميس"),("5","الجمعة"),("6","السبت")}){<label class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="workingDays" value="@d.Item1" checked="@(days.Contains(d.Item1))"/> @d.Item2</label>}</div>
+</div><button class="btn btn-green mt-3">حفظ إعدادات المواعيد</button></form>
