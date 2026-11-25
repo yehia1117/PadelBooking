@@ -1,4 +1,4 @@
-# Padel Booking System (ASP.NET Core MVC)
+# Padel PIN Booking System (ASP.NET Core MVC)
 
 Arabic RTL prototype for booking one padel court. Players register with an Egyptian mobile number and password. Requests remain Pending until an admin confirms or rejects them.
 
@@ -18,7 +18,7 @@ Arabic RTL prototype for booking one padel court. Players register with an Egypt
 The SQLite database is created automatically as `padel.db` on first run.
 
 ## Default admin login
-- Phone: `01000000000`
+- Phone: the court contact number configured in Court Settings (default `01095672217`)
 - Password: `Admin@123`
 
 Change this password before deploying publicly. The starter seeds this admin account only if it does not already exist in the database.
@@ -32,7 +32,7 @@ Create an empty repository on GitHub, then run from this project directory:
 ```bash
 git init
 git add .
-git commit -m "Initial Padel Booking System"
+git commit -m "Initial Padel PIN Booking System"
 git branch -M main
 git remote add origin https://github.com/YOUR-USERNAME/Padel-Booking-System.git
 git push -u origin main
