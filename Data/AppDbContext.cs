@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<CourtSettings> CourtSettings => Set<CourtSettings>();
     public DbSet<BlockedSlot> BlockedSlots => Set<BlockedSlot>();
+    public DbSet<PasswordResetRequest> PasswordResetRequests => Set<PasswordResetRequest>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>().HasIndex(u => u.Phone).IsUnique();

@@ -26,6 +26,7 @@ using (var scope = app.Services.CreateScope())
     // Create new feature tables for installations that already had the original database.
     db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"CourtSettings\" (\"Id\" INTEGER NOT NULL CONSTRAINT \"PK_CourtSettings\" PRIMARY KEY, \"OpenHour\" INTEGER NOT NULL, \"CloseHour\" INTEGER NOT NULL, \"SlotMinutes\" INTEGER NOT NULL, \"PricePerHour\" TEXT NOT NULL, \"WorkingDays\" TEXT NOT NULL, \"ContactPhone\" TEXT NOT NULL);");
     db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"BlockedSlots\" (\"Id\" INTEGER NOT NULL CONSTRAINT \"PK_BlockedSlots\" PRIMARY KEY AUTOINCREMENT, \"StartDateTime\" TEXT NOT NULL, \"EndDateTime\" TEXT NOT NULL, \"Reason\" TEXT NOT NULL);");
+    db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"PasswordResetRequests\" (\"Id\" INTEGER NOT NULL CONSTRAINT \"PK_PasswordResetRequests\" PRIMARY KEY AUTOINCREMENT, \"Phone\" TEXT NOT NULL, \"CreatedAt\" TEXT NOT NULL, \"IsResolved\" INTEGER NOT NULL);");
     if (!db.CourtSettings.Any()) { db.CourtSettings.Add(new CourtSettings()); db.SaveChanges(); }
     // Keep the existing administrator account and move its login phone to the court contact number.
     var courtPhone = db.CourtSettings.First().ContactPhone;

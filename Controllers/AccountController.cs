@@ -42,6 +42,33 @@ public class AccountController : Controller
     }
 
     [HttpGet]
+    public IActionResult ForgotPassword() => View();
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ForgotPassword(string phone)
+    {
+        phone = (phone ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(phone) || phone.Length < 10 || phone.Length > 20)
+        {
+            ModelState.AddModelError(nameof(phone), "اكتب رقم الموبايل المسجل بشكل صحيح.");
+            return View();
+        }
+        // Always show the same response so the page does not reveal whether a phone is registered.
+        var exists = await _db.Users.AnyAsync(u => u.Phone == phone && u.Role != "Admin");
+        if (exists)
+        {
+            var recent = await _db.PasswordResetRequests.AnyAsync(r => r.Phone == phone && !r.IsResolved && r.CreatedAt > DateTime.Now.AddHours(-24));
+            if (!recent)
+            {
+                _db.PasswordResetRequests.Add(new PasswordResetRequest { Phone = phone });
+                await _db.SaveChangesAsync();
+            }
+        }
+        TempData["Message"] = "لو الرقم مسجل كعميل، تم إرسال طلبك للإدارة. تواصل مع الملعب للتحقق من هويتك واستعادة الحساب.";
+        return RedirectToAction(nameof(ForgotPassword));
+    }
+
+    [HttpGet]
     public IActionResult ChangePassword() => View();
 
     [HttpPost, ValidateAntiForgeryToken]

@@ -1,7 +1,27 @@
 @model LoginViewModel
 @{ ViewData["Title"] = "تسجيل الدخول"; }
-<div class="auth-card mx-auto"><h2 class="fw-bold mb-1">أهلاً بيك 👋</h2><p class="text-secondary">سجّل دخول علشان تتابع وتحجز</p>
-<form asp-action="Login" method="post"><div asp-validation-summary="ModelOnly" class="text-danger"></div>
-<div class="mb-3"><label asp-for="Phone" class="form-label">رقم الموبايل</label><input asp-for="Phone" class="form-control" placeholder="01xxxxxxxxx"/></div>
-<div class="mb-3"><label asp-for="Password" class="form-label">كلمة المرور</label><input asp-for="Password" type="password" class="form-control"/></div>
-<button class="btn btn-green w-100 btn-lg">دخول</button></form><p class="mt-3 mb-0">لسه معندكش حساب؟ <a asp-action="Register">اعمل حساب</a></p></div>
+<div class="auth-card mx-auto">
+    <h2 class="fw-bold mb-1">أهلاً بيك 👋</h2>
+    <p class="text-secondary">سجّل دخول علشان تتابع وتحجز</p>
+    <form asp-action="Login" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="mb-3">
+            <label asp-for="Phone" class="form-label">رقم الموبايل</label>
+            <input asp-for="Phone" class="form-control" placeholder="01xxxxxxxxx" autocomplete="tel" />
+            <span asp-validation-for="Phone" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label">كلمة المرور</label>
+            <input asp-for="Password" type="password" class="form-control" autocomplete="current-password" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-green w-100 btn-lg">دخول</button>
+    </form>
+    <div class="text-center my-3">
+        <a asp-controller="Account" asp-action="ForgotPassword" class="btn btn-outline-success w-100">
+            نسيت كلمة المرور؟ اضغط هنا لاستعادة حسابك
+        </a>
+    </div>
+    <p class="mt-3 mb-0 text-center">لسه معندكش حساب؟ <a asp-action="Register">اعمل حساب</a></p>
+</div>

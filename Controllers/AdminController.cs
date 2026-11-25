@@ -90,6 +90,36 @@ public class AdminController : Controller
         return View(items.OrderBy(x=>x.StartDateTime).ToList());
     }
 
+    public async Task<IActionResult> ResetRequests()
+    {
+        var requests = await _db.PasswordResetRequests.Where(r => !r.IsResolved).OrderBy(r => r.CreatedAt).ToListAsync();
+        return View(requests);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ResetCustomerPassword(int id)
+    {
+        var request = await _db.PasswordResetRequests.FindAsync(id);
+        if (request == null || request.IsResolved) return NotFound();
+        var customer = await _db.Users.FirstOrDefaultAsync(u => u.Phone == request.Phone && u.Role != "Admin");
+        if (customer == null) return NotFound();
+        return View(new AdminResetPasswordViewModel { RequestId = request.Id, UserId = customer.Id, CustomerName = customer.Name, Phone = customer.Phone });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetCustomerPassword(AdminResetPasswordViewModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+        var request = await _db.PasswordResetRequests.FindAsync(model.RequestId);
+        var customer = await _db.Users.FirstOrDefaultAsync(u => u.Id == model.UserId && u.Role != "Admin");
+        if (request == null || request.IsResolved || customer == null || customer.Phone != request.Phone) return NotFound();
+        customer.PasswordHash = PasswordHasher.Hash(model.NewPassword);
+        request.IsResolved = true;
+        await _db.SaveChangesAsync();
+        TempData["Message"] = "تم تعيين كلمة مرور جديدة. سلّمها للعميل بعد التحقق من هويته، واطلب منه تغييرها بعد الدخول.";
+        return RedirectToAction(nameof(ResetRequests));
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateStatus(int id, string status, string? notes)
     {

@@ -14,7 +14,7 @@
  <div class="container"><a class="navbar-brand fw-bold" asp-controller="Home" asp-action="Index">🎾 PADEL PIN</a>
   <div class="d-flex gap-2 align-items-center">
    @if (User.Identity?.IsAuthenticated == true) {
-      @if (User.IsInRole("Admin")) { <a class="btn btn-sm btn-outline-light" asp-controller="Admin" asp-action="Index">لوحة الإدارة</a> }
+      @if (User.IsInRole("Admin")) { <a class="btn btn-sm btn-outline-light" asp-controller="Admin" asp-action="Index">لوحة الإدارة</a><a class="btn btn-sm btn-outline-light" asp-controller="Admin" asp-action="ResetRequests">طلبات استعادة كلمة المرور</a> }
       else { <a class="btn btn-sm btn-outline-light" asp-controller="Booking" asp-action="Index">احجز ملعب</a><a class="btn btn-sm btn-outline-light" asp-controller="Booking" asp-action="MyBookings">حجوزاتي</a> }
       <a class="btn btn-sm btn-outline-light" asp-controller="Account" asp-action="ChangePassword">تغيير كلمة المرور</a><form asp-controller="Account" asp-action="Logout" method="post"><button class="btn btn-sm btn-light" type="submit">خروج</button></form>
    } else { <a class="btn btn-sm btn-outline-light" asp-controller="Account" asp-action="Login">دخول</a><a class="btn btn-sm btn-green" asp-controller="Account" asp-action="Register">حساب جديد</a> }
