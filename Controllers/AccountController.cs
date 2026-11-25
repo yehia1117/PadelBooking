@@ -41,6 +41,33 @@ public class AccountController : Controller
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
     }
 
+    [HttpGet]
+    public IActionResult ChangePassword() => View();
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+    {
+        if (!ModelState.IsValid) return View(model);
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(idClaim, out var userId)) return Challenge();
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null) return Challenge();
+        if (!PasswordHasher.Verify(model.CurrentPassword, user.PasswordHash))
+        {
+            ModelState.AddModelError(nameof(model.CurrentPassword), "كلمة المرور الحالية غير صحيحة.");
+            return View(model);
+        }
+        if (PasswordHasher.Verify(model.NewPassword, user.PasswordHash))
+        {
+            ModelState.AddModelError(nameof(model.NewPassword), "اختار كلمة مرور مختلفة عن الحالية.");
+            return View(model);
+        }
+        user.PasswordHash = PasswordHasher.Hash(model.NewPassword);
+        await _db.SaveChangesAsync();
+        TempData["Message"] = "تم تغيير كلمة المرور بنجاح.";
+        return RedirectToAction("ChangePassword");
+    }
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout() { await HttpContext.SignOutAsync(); return RedirectToAction("Index", "Home"); }
 }
