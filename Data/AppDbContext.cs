@@ -12,7 +12,8 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>().HasIndex(u => u.Phone).IsUnique();
-        modelBuilder.Entity<Booking>().HasIndex(b => b.StartDateTime).IsUnique();
+        modelBuilder.Entity<Booking>().HasIndex(b => b.StartDateTime);
+        modelBuilder.Entity<Booking>().HasIndex(b => b.BookingNumber).IsUnique();
         modelBuilder.Entity<Booking>().HasOne(b => b.User).WithMany(u => u.Bookings).HasForeignKey(b => b.UserId);
         modelBuilder.Entity<CourtSettings>().HasKey(x => x.Id);
         modelBuilder.Entity<BlockedSlot>().HasIndex(x => new { x.StartDateTime, x.EndDateTime });

@@ -1,0 +1,9 @@
+@model List<Booking>
+@{ ViewData["Title"] = "التقرير اليومي"; }
+<style>@@media print {.no-print{display:none!important} body{background:white!important}}</style>
+<div class="d-flex justify-content-between align-items-center mb-3 no-print"><h2>تقرير حجوزات اليوم</h2><button class="btn btn-success" onclick="window.print()">طباعة / حفظ PDF</button></div>
+<form method="get" class="date-picker-card mb-3 no-print"><label class="form-label">اختار اليوم</label><div class="d-flex gap-2"><input type="date" name="date" value="@ViewBag.ReportDate" class="form-control"/><button class="btn btn-green">عرض</button></div></form>
+<h3 class="text-center">Padel PIN - تقرير الحجوزات</h3><p class="text-center">التاريخ: @DateTime.Parse((string)ViewBag.ReportDate).ToString("dd/MM/yyyy")</p>
+<div class="table-responsive"><table class="table table-bordered"><thead><tr><th>رقم الحجز</th><th>العميل</th><th>الهاتف</th><th>من</th><th>إلى</th><th>الحالة</th><th>الدفع</th><th>المدفوع</th></tr></thead><tbody>
+@foreach(var b in Model){<tr><td>@b.BookingNumber</td><td>@b.User?.Name</td><td dir="ltr">@b.User?.Phone</td><td>@b.StartDateTime.ToString("hh:mm tt")</td><td>@b.EndDateTime.ToString("hh:mm tt")</td><td>@b.Status</td><td>@b.PaymentStatus</td><td>@b.PaidAmount.ToString("N2")</td></tr>}
+</tbody></table></div><h5>إجمالي المدفوع: @(((decimal)ViewBag.PaidTotal).ToString("N2")) جنيه</h5>

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,10 @@ public class AdminController : Controller
         var settings = await Settings();
         var start = chosen.AddHours(settings.OpenHour);
         var end = chosen.AddHours(settings.CloseHour);
+        var now = DateTime.Now;
+        var expired = await _db.Bookings.Where(b => b.Status == "Pending" && b.ExpiresAt != null && b.ExpiresAt <= now).ToListAsync();
+        foreach (var item in expired) item.Status = "Expired";
+        if (expired.Count > 0) await _db.SaveChangesAsync();
         var bookings = await _db.Bookings.Include(b => b.User).Where(b => b.StartDateTime >= start && b.StartDateTime < end).OrderBy(b => b.StartDateTime).ToListAsync();
         var blocks = await _db.BlockedSlots.Where(x => x.StartDateTime < end && x.EndDateTime > start).OrderBy(x => x.StartDateTime).ToListAsync();
         ViewBag.Date = chosen.ToString("yyyy-MM-dd"); ViewBag.PendingCount = await _db.Bookings.CountAsync(b => b.Status == "Pending");
@@ -68,7 +73,8 @@ public class AdminController : Controller
         var s=await Settings(); var end=startDateTime.AddMinutes(s.SlotMinutes); var sessionDate=startDateTime.Hour<s.OpenHour?startDateTime.Date.AddDays(-1):startDateTime.Date; var dayStart=sessionDate.AddHours(s.OpenHour); var dayEnd=sessionDate.AddHours(s.CloseHour);
         if(!await _db.Users.AnyAsync(u=>u.Id==userId && u.Role!="Admin") || startDateTime<DateTime.Now || startDateTime<dayStart || (startDateTime - dayStart).TotalMinutes % s.SlotMinutes != 0 || end>dayEnd || !s.WorkingDays.Split(',').Contains(((int)sessionDate.DayOfWeek).ToString()) || await _db.Bookings.AnyAsync(b=>b.StartDateTime<end && b.EndDateTime>startDateTime && b.Status!="Rejected" && b.Status!="Cancelled") || await _db.BlockedSlots.AnyAsync(x=>x.StartDateTime<end && x.EndDateTime>startDateTime))
         { TempData["Message"]="العميل أو الموعد غير صالح أو غير متاح."; return RedirectToAction(nameof(ManualBooking),new {date=startDateTime.Date.ToString("yyyy-MM-dd")}); }
-        _db.Bookings.Add(new Booking{UserId=userId,StartDateTime=startDateTime,EndDateTime=end,Status="Confirmed",AdminNotes="حجز يدوي بواسطة الإدارة"}); await _db.SaveChangesAsync();
+        var manual = new Booking{UserId=userId,StartDateTime=startDateTime,EndDateTime=end,Status="Confirmed",BookingNumber="TMP-" + Guid.NewGuid().ToString("N"),PaymentStatus="Paid",PaidAmount=(decimal)(end-startDateTime).TotalHours*s.PricePerHour,AdminNotes="حجز يدوي بواسطة الإدارة",AdminActionBy=User.Identity?.Name,AdminActionAt=DateTime.Now};
+        _db.Bookings.Add(manual); await _db.SaveChangesAsync(); manual.BookingNumber=$"PP-{manual.CreatedAt.Year}-{manual.Id:00000}"; await _db.SaveChangesAsync();
         TempData["Message"]="تم تسجيل الحجز اليدوي وتأكيده."; return RedirectToAction(nameof(Index),new {date=startDateTime.Date.ToString("yyyy-MM-dd")});
     }
 
@@ -88,6 +94,18 @@ public class AdminController : Controller
         var end=m.AddMonths(1); var items=await _db.Bookings.Where(b=>b.StartDateTime>=m && b.StartDateTime<end).ToListAsync();
         ViewBag.Month=m.ToString("yyyy-MM"); ViewBag.Total=items.Count; ViewBag.Confirmed=items.Count(x=>x.Status=="Confirmed"); ViewBag.Pending=items.Count(x=>x.Status=="Pending"); ViewBag.Cancelled=items.Count(x=>x.Status=="Cancelled"||x.Status=="Rejected"); ViewBag.Revenue=items.Where(x=>x.Status=="Confirmed").Sum(x=>(decimal)(x.EndDateTime-x.StartDateTime).TotalHours)* (await Settings()).PricePerHour;
         return View(items.OrderBy(x=>x.StartDateTime).ToList());
+    }
+
+
+    public async Task<IActionResult> DailyReport(string? date)
+    {
+        var day = DateTime.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed) ? parsed.Date : DateTime.Today;
+        var settings = await Settings();
+        var start = day.AddHours(settings.OpenHour); var end = day.AddHours(settings.CloseHour);
+        var bookings = await _db.Bookings.Include(b => b.User).Where(b => b.StartDateTime >= start && b.StartDateTime < end).OrderBy(b => b.StartDateTime).ToListAsync();
+        ViewBag.ReportDate = day.ToString("yyyy-MM-dd");
+        ViewBag.PaidTotal = bookings.Where(b => b.PaymentStatus == "Paid").Sum(b => b.PaidAmount);
+        return View(bookings);
     }
 
     public async Task<IActionResult> ResetRequests()
@@ -125,7 +143,15 @@ public class AdminController : Controller
     {
         if (status is not ("Confirmed" or "Rejected" or "Cancelled")) return BadRequest();
         var booking=await _db.Bookings.FindAsync(id); if(booking==null)return NotFound();
-        booking.Status=status; booking.AdminNotes=notes; await _db.SaveChangesAsync(); TempData["Message"]="تم تحديث حالة الحجز. سيظهر التحديث للعميل في صفحة حجوزاته.";
+        if (status == "Confirmed" && booking.Status == "Expired")
+        {
+            var conflict = await _db.Bookings.AnyAsync(b => b.Id != id && b.StartDateTime < booking.EndDateTime && b.EndDateTime > booking.StartDateTime && b.Status != "Rejected" && b.Status != "Cancelled" && b.Status != "Expired");
+            if (conflict) { TempData["Message"] = "انتهت المهلة والموعد أصبح محجوزاً؛ لا يمكن تأكيد هذا الطلب."; return RedirectToAction("Index", new { date = booking.StartDateTime.Date.ToString("yyyy-MM-dd") }); }
+        }
+        booking.Status=status; booking.AdminNotes=notes;
+        booking.AdminActionBy=User.Identity?.Name; booking.AdminActionAt=DateTime.Now; booking.AdminActionReason=notes;
+        if (status == "Confirmed") { booking.PaymentStatus="Paid"; if (booking.PaidAmount <= 0) { var settings=await Settings(); booking.PaidAmount=(decimal)(booking.EndDateTime-booking.StartDateTime).TotalHours*settings.PricePerHour; } }
+        await _db.SaveChangesAsync(); TempData["Message"]="تم تحديث حالة الحجز وتسجيل اسم المسؤول ووقت الإجراء.";
         return RedirectToAction("Index",new {date=booking.StartDateTime.Date.ToString("yyyy-MM-dd")});
     }
 }
