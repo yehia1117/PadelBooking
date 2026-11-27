@@ -12,7 +12,6 @@ public static class DatabaseUpgrade
         db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"BlockedSlots\" (\"Id\" INTEGER NOT NULL CONSTRAINT \"PK_BlockedSlots\" PRIMARY KEY AUTOINCREMENT, \"StartDateTime\" TEXT NOT NULL, \"EndDateTime\" TEXT NOT NULL, \"Reason\" TEXT NOT NULL);");
         db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"PasswordResetRequests\" (\"Id\" INTEGER NOT NULL CONSTRAINT \"PK_PasswordResetRequests\" PRIMARY KEY AUTOINCREMENT, \"Phone\" TEXT NOT NULL, \"CreatedAt\" TEXT NOT NULL, \"IsResolved\" INTEGER NOT NULL);");
         db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS \"IX_Bookings_StartDateTime\" ON \"Bookings\" (\"StartDateTime\");");
-        db.Database.ExecuteSqlRaw("CREATE INDEX IF NOT EXISTS \"IX_Bookings_StartDateTime\" ON \"Bookings\" (\"StartDateTime\");");
         AddColumn(db, "BookingNumber", "TEXT NOT NULL DEFAULT ''");
         AddColumn(db, "ExpiresAt", "TEXT NULL");
         AddColumn(db, "PaymentStatus", "TEXT NOT NULL DEFAULT 'Unpaid'");
@@ -59,14 +58,15 @@ public static class DatabaseUpgrade
         parameter.Value = name;
         command.Parameters.Add(parameter);
 
-        var exists = Convert.ToInt32(command.ExecuteScalar()) > 0;
+       var exists = Convert.ToInt32(command.ExecuteScalar()) > 0;
 
-        if (!exists)
-        {
-			db.Database.ExecuteSql(
-    $"ALTER TABLE \"Bookings\" ADD COLUMN \"{name}\" {safeDefinition}");
-            
-        }
+if (!exists)
+{
+    var sql = "ALTER TABLE \"Bookings\" ADD COLUMN \""
+              + name + "\" " + safeDefinition + ";";
+
+    db.Database.ExecuteSqlRaw(sql);
+}
     }
     finally
     {
